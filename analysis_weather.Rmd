@@ -1,0 +1,378 @@
+---
+title: "Hourly Weather exploration by Jairo Freitas"
+output:
+  html_document:
+    df_print: paged
+---
+This report explores the data from 17 climate parameters (continuous values) from 122 weather stations in Southeast Brazil (São Paulo, Rio de Janeiro, Minas Gerais and Espirito Santo).
+
+The dataset used was downloaded on Feb 17th 2019 from https://www.kaggle.com/PROPPG-PPG/hourly-weather-surface-brazil-southeast-region
+
+## Dataset Overview
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+setwd('/home/jairo/codes/udacity/r/hourly_weather_se_br/')
+hw <- read.csv('sudeste.csv')
+hw$mdct <- as.POSIXct(hw$mdct ,format="%Y-%m-%d %H:%M:%S",tz=Sys.timezone())
+hw$date <- as.POSIXct(hw$date ,format="%Y-%m-%d",tz=Sys.timezone())
+str(hw)
+```
+| Variable         | Description                                         | Unit          |
+|------------------|-----------------------------------------------------|---------------|
+|wsid              |Weather station id                                   |N/A            |
+|wsnm              |Name station (usually city location or nickname)     |N/A            |
+|elvt              |Elevation                                            |meters         |
+|lat               |Latitude                                             |N/A            |
+|lon               |Longitude                                            |N/A            |
+|inme              |Station number (INMET number) for the location       |N/A            |
+|city              |City                                                 |N/A            |
+|prov              |State (Province)                                     |N/A            |
+|mdct              |Observation Datetime (complete date: date + time)    |N/A            |
+|date              |Date of observation                                  |N/A            |
+|yr                |The year (2000-2016)                                 |N/A            |
+|mo                |The month (0-12)                                     |N/A            |
+|da                |The day (0-31)                                       |N/A            |
+|hr                |The hour (0-23)                                      |N/A            |
+|prcp              |Amount of precipitation (last hour)                  |mm             |
+|stp               |Air pressure for the hour (instant)                  |hPa to tenths  |
+|smax              |Maximum air pressure for the last hour               |hPa to tenths  |
+|smin              |Minimum air pressure for the last hour               |hPa to tenths  |
+|gbrd              |Solar radiation                                      |KJ/m2          |
+|temp              |Air temperature (instant)                            |Celsius        |
+|dewp              |Dew point temperature (instant)                      |Celsius        |
+|tmax              |Maximum temperature for the last hour                |Celsius        |
+|dmax              |Maximum dew point temperature for the last hour      |Celsius        |
+|tmin              |Minimum temperature for the last hour                |Celsius        |
+|dmin              |Minimum dew point temperature for the last hour      |Celsius        |
+|hmdy              |Relative humid (instant)                             |%              |
+|dmin              |Minimum dew point temperature for the last hour      |Celsius        |
+|hmdy              |Relative humid (instant)                             |%              |
+|hmax              |Maximum relative humid temperature for the last hour |%              |
+|hmin              |Minimum relative humid temperature for the last hour |%              |
+|wdsp              |Wind speed                                           |m/s            |
+|wdct              |Wind direction (0-360)                               |radius degrees |
+|gust              |Wind gust                                            |m/s            |
+
+
+## Important Weather Concepts
+* **Dew Point Temperature**: The temperature to which air must be cooled to become saturated with water vapour. A higher dew point means there will be more moisture in the air.
+* **Relative Humid**: Expressed as a percentage, indicates a present state of absolute humidity relative to a maximum humidity given the same temperature
+* **Wind Gust**: A brief increase in the speed of the wind, usually less than 20 seconds.
+
+## Weather Stations
+
+There are 122 operating Weather Stations installed over time. The oldest one is based on Seropédica - Rio de Janeiro.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#install.packages('mapdata')
+library(dplyr)
+library(mapdata)
+library(ggplot2)
+
+#Stations geodata and installation yr
+stations <- subset(hw, lon<=-10 & lat<=-10) %>%
+  group_by(wsid) %>%
+  summarise(installation_yr = min(yr), lat=min(lat), long=min(lon)) 
+
+#load Brazil map
+brasil.mapa <- borders("worldHires", regions = "Brazil", fill = "grey90", colour = "black")
+
+#Plot the stations and paint them with the installation year
+ggplot(aes(x=long), data=stations) + 
+  brasil.mapa + 
+  geom_point(aes(y=lat, colour=installation_yr), size=3) + 
+  coord_equal() +
+  coord_cartesian(xlim=c(-50, -35), ylim=c(-30, -10)) +
+  ggtitle("Weather Stations and their installation year")
+
+```
+
+## Univariate Analysis
+
+Below are histograms of 9 variables.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gridExtra)
+
+h1 <- ggplot(aes(x = prcp), data = hw) + geom_histogram(fill='light blue', color='blue') + scale_x_log10() + xlab("Precipitation (mm)")
+h2 <- ggplot(aes(x = stp), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Air pressure (hPa)")
+h3 <- ggplot(aes(x = gbrd), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Solar Radiation (KJ/m2)")
+
+
+grid.arrange(h1, h2, h3)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+h4 <- ggplot(aes(x = temp), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Temperature (C)")
+h5 <- ggplot(aes(x = dewp), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Dew Point Temperature (C)")
+h6 <- ggplot(aes(x = hmdy), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Humidity (%)")
+
+grid.arrange(h4, h5, h6)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+h7 <- ggplot(aes(x = wdsp), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Wind Speed (m/s)")
+h8 <- ggplot(aes(x = wdct), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Wind Direction (radius degrees)")
+h9 <- ggplot(aes(x = gust), data = hw) + geom_histogram(fill='light blue', color='blue') + xlab("Wind gust (m/s)")
+
+grid.arrange(h7, h8, h9)
+```
+
+There's an abnormal frequency of zero values in the variables stp (air pressure), gbrd (solar radiation), temp (temperature), dewp (dew point temperature), hmdy (humidity), wdsp (wind speed) and wdct (wind direction). Zeros on Wind gust and precipitation aren't suspicious, given these events (rain and wind gust) are non-prevalent. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+print(paste0('stp contains ', round(100*dim(subset(hw, stp == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(stp)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('gbrd contains ', round(100*dim(subset(hw, gbrd == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(gbrd)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('temp contains ', round(100*dim(subset(hw, temp == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(temp)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('dewp contains ', round(100*dim(subset(hw, dewp == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(dewp)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('hmdy contains ', round(100*dim(subset(hw, hmdy == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(hmdy)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('wdsp contains ', round(100*dim(subset(hw, wdsp == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(wdsp)))[1]/dim(hw)[1],2), '% NAs'))
+print(paste0('wdct contains ', round(100*dim(subset(hw, wdct == 0))[1]/dim(hw)[1],2), '% zeros and ', round(100*dim(subset(hw, is.na(wdct)))[1]/dim(hw)[1],2), '% NAs'))
+```
+
+Approximately 8% of these continous variable values are zeros. It feels like sensor reading error data, but more investigation is needed, so I'll examine the co-occurrence of these zeros. gbrd will not be used due to high missing frequency.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+for(var1 in c("stp", "temp", "dewp", "hmdy", "wdsp", "wdct")){
+  for (var2 in c("stp", "temp", "dewp", "hmdy", "wdsp", "wdct")) {
+    print(paste0('Co-occurrence of zeros in ', var1, ' and ', var2, ' is: ', round(100*dim(subset(hw, eval(parse(text=paste0(var1,"==0"))) & eval(parse(text=paste0(var2,"==0")))))[1]/dim(hw)[1],2), '% zeros'))
+  }
+}
+```
+
+The records above show that there's plenty of co-occurrence between zero variables, when any of these variables are zeros the record will be dropped. Below there is a waterfall of the records removed.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+waterfall_df <-data.frame(desc = c("Total Data",
+                                   "Air Pressure (stp)", 
+                                   "Temperature (temp)", 
+                                   "Dew Point Temperature (dewp)",
+                                   "Humidity (hmdy)", 
+                                   "Wind Direction (wdct)", 
+                                   "Cleansed Data"), 
+                          amount = c(dim(hw)[1], 
+                                     -dim(subset(hw, stp==0))[1],
+                                     -dim(subset(hw, stp!=0 & temp == 0))[1],
+                                     -dim(subset(hw, stp!=0 & temp != 0 & dewp == 0))[1],
+                                     -dim(subset(hw, stp!=0 & temp != 0 & dewp != 0 & hmdy == 0))[1],
+                                     -dim(subset(hw, stp!=0 & temp != 0 & dewp != 0 & hmdy != 0 & wdct == 0))[1],
+                                     dim(subset(hw, stp!=0 & temp != 0 & dewp != 0 & hmdy != 0 & wdct != 0))[1]))
+hw_clean <- subset(hw, stp!=0 & temp != 0 & dewp != 0 & hmdy != 0 & wdct != 0)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+waterfall_df$id <- seq_along(waterfall_df$amount)
+waterfall_df$desc <- factor(waterfall_df$desc, levels = waterfall_df$desc)
+waterfall_df$type <- ifelse(waterfall_df$amount > 0, "in", "out")
+waterfall_df[waterfall_df$desc %in% c("Total Data", "Cleansed Data"), "type"] <- "net"
+
+waterfall_df$end <- cumsum(waterfall_df$amount)
+waterfall_df$end <- c(head(waterfall_df$end, -1), 0)
+waterfall_df$start <- c(0, head(waterfall_df$end, -1))
+waterfall_df <- waterfall_df[, c(3, 1, 4, 6, 5, 2)]
+
+waterfall_df$type <- factor(waterfall_df$type, levels = c("out", "in", "net"))
+
+print(waterfall_df)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+#On plot converts spaces to line break
+strwr <- function (str){ gsub(" ", "\n", str)}
+
+#plots the waterfall
+ggplot(aes(desc, fill = type), data = waterfall_df) + 
+  geom_rect(aes(x = reorder(x=factor(strwr(desc)), X=id), xmin = id - 0.45, xmax = id + 0.45, ymin = end, ymax = start)) + 
+  scale_y_continuous("", labels = scales::comma) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14,face="bold"))
+```
+
+Repeating the aforementioned analysis on cleansed data, we've got:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+h1 <- ggplot(aes(x = prcp), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + scale_x_log10() + xlab("Precipitation (mm)")
+h2 <- ggplot(aes(x = stp), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Air pressure (hPa)")
+h4 <- ggplot(aes(x = temp), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Temperature (C)")
+
+grid.arrange(h1, h2, h4)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+h5 <- ggplot(aes(x = dewp), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Dew Point Temperature (C)")
+h6 <- ggplot(aes(x = hmdy), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Humidity (%)")
+h7 <- ggplot(aes(x = wdsp), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Wind Speed (m/s)")
+
+grid.arrange(h5, h6, h7)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+h8 <- ggplot(aes(x = wdct), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Wind Direction (radius degrees)")
+h9 <- ggplot(aes(x = gust), data = hw_clean) + geom_histogram(fill='light blue', color='blue') + xlab("Wind gust (m/s)")
+
+grid.arrange(h8, h9)
+```
+
+
+From the graphs and the summary table below:
+
+* Mean precipitation(prcp) is 2mm
+
+* Air pressure (stp) mean and median are of 948hPa
+
+* Temperature has median of 21.9C and a bell curve distribution
+
+* Dew Point Temperature (dewp) has a negative skewed distribution with median 16.5C 
+
+* The humidity (hmdy) is generally high in this region, with median of 76%
+
+* The Wind Speed (wdsp) has a positive skewed distribution with median  of 1.9m/s
+
+* The Wind Direction (wdct) has a median of 126 radius degrees with a normal distribution between 0 and 200 radius degrees and a uniform-ish curve for 200+ degress
+
+* Wind Gust (gust) has a positive skewed distribution with median of 4.5 m/s
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(hw_clean[15:31])
+```
+
+
+If you were also curious about the 42% missing values for Solar Radiation, take a brief dive into this problem. First Let's see if there's a change of the representation of missings over time. The graph below presents a very stable missing frequency through the years, even with the increase of wheater stations in the region.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Create a dataset of counts distinct stations per year and percent of missing records for solar radiation over total records
+
+missing.gbrd <- hw %>%
+  group_by(yr) %>%
+  summarise(qty_stations=n_distinct(wsid), pct_missings = sum(is.na(gbrd)) / n() ) 
+
+#Plot the summarisation
+cols <- c("Qty of Operating Weather Stations"="red","% Records Missing Solar Radiation"="light blue")
+ggplot(aes(x=yr), data=missing.gbrd) + 
+  geom_bar(stat='identity', aes(y=pct_missings*100, fill="% Records Missing Solar Radiation"), colour='blue') + 
+    geom_text(aes(y=pct_missings*100, label=round(pct_missings*100,1))) +
+  geom_line(stat='identity', aes(y = qty_stations,colour="Qty of Operating Weather Stations")) + 
+    geom_text(aes(y=qty_stations, label=qty_stations)) +
+  scale_colour_manual(name="",values=cols) + 
+  scale_fill_manual(name="",values=cols) +
+  labs(y = "", x = "Year") +
+  theme(legend.position="bottom") + 
+  ggtitle("Quantity of weather stations and records missing solar radiation per year")
+```
+
+The missing records are concentrated between 11pm and 8am, as shown in the graph below. Having no solar radiation between 6 and 8am in this region suggests artificial influence on it. It could be that this sensor is turned off for power saving.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+missing.gbrd <- hw %>%
+  group_by(hr) %>%
+  summarise(pct_missings = sum(is.na(gbrd)) / n() ) 
+
+ggplot(aes(x=hr), data=missing.gbrd) +
+  geom_bar(stat='identity', aes(y=pct_missings*100), fill="light blue", colour='blue') +
+  geom_text(aes(y=pct_missings*100, label=round(pct_missings*100,1))) + 
+  labs(y = "", x = "Hour") +
+  ggtitle("Records missing solar radiation per hour")
+```
+
+## Bivariate Analysis
+
+To explore the bivariate analysis, it was chosen at first the station id 178 (SAO GONCALO) and the year 2015 to avoid geographical noise and reduce processing time. The analysis is performed on the max value for the last hour of the variables air pressure (`smax`), dew point temperature (`dmax`), temperature (`tmax`), humidity (`hmax`) and the instant value of windspeed (`wdsp`) and wind gust (`gust`).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hw_sg <- subset(hw_clean, yr == 2015 & wsid == 178)
+hw_sg <- select(hw_sg, prcp, smax, dmax, tmax, hmax, wdsp, gust)
+hw_sg[is.na(hw_sg)] <- 0 #filling NA with zero
+#head(hw_sg)
+```
+
+The matrix pair plot below shows the scatter plot of these variables on the upper panel and the pearson correlation on the lower panel. Except for precipitation and air pressure, all variables have high correlation with at least one other variable. Some highlights (very comprehensible if you studied thermodynamics):
+
+* Greater the temperature lower the humidity and higher the wind gust (obvious).
+
+* Greater the wind speed greater the wind gust (obvious). 
+
+* Greater the humidity greater the dew point temperature (obvious) and lower the wind speed and wind gust (not obvious).
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=10, warning=FALSE}
+# Correlation panel
+panel.cor <- function(x, y){
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- round(cor(x, y), digits=2)
+    txt <- paste0("R = ", r)
+    cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor)
+}
+#Upper panel (to personalize style)
+upper.panel<-function(x, y){
+  points(x,y, pch = 19, cex=0.5, col = alpha("blue", 0.05))
+}
+
+pairs(hw_sg, upper.panel = upper.panel, lower.panel = panel.cor)
+```
+
+Over time it's interesting to observe the weather cicle through years for the SAO GONCALO station. Note that there are missing records in 2010.
+```{r echo=FALSE, fig.width=10, message=FALSE, warning=FALSE}
+hw_sg <- subset(hw_clean, wsid == 178)
+hw_sg <- select(hw_sg, date, tmax)
+ggplot(aes(x=date), data=hw_sg) + geom_line(stat = "summary", fun.y=median, aes(y=tmax), color='blue')
+```
+
+Zooming in 2015, november through february are hotter then the other months, as is common on the south hemisphere.
+
+```{r echo=FALSE, fig.width=10, message=FALSE, warning=FALSE}
+hw_sg <- subset(hw_clean, wsid == 178 & yr == 2015)
+hw_sg <- select(hw_sg, date, tmax)
+ggplot(aes(x=date), data=hw_sg) + geom_line(stat = "summary", fun.y=median, aes(y=tmax), color='blue')
+```
+
+
+## Temperature forecast
+
+Finally, a regression was fitted to the data for the SAO GONCALO station to predict the temperature for the next 24 hours. Remember that the temperature has a bell shape. The variable `temp_next24h` is the target being predicted.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hw_pred <- subset(hw_clean, wsid == 178)
+hw_pred <- select(hw_pred, prcp, smax, dmax, tmax, hmax, wdsp, gust)
+hw_pred[is.na(hw_pred)] <- 0 #filling NA with zero
+hw_pred$temp_next24h <- lead(hw_pred$tmax, 24)
+hw_pred = hw_pred[complete.cases(hw_pred),] #remove the last 24 lines that have no temp_next24h
+head(hw_pred)
+```
+
+The regression has a R² of 0.70. As can be seen from the model below.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+linear <- lm(temp_next24h ~ prcp + smax + dmax + tmax + hmax + wdsp + gust, hw_pred)
+print(summary(linear))
+```
+
+For feature importance analysis, the variables were standardized (Z-Score) and the model fitted. Notice that this doesn't change the R², but it translate the new predictors coefficient to the degree of importance each has on the model. Notice that the importante, in order is:
+
+* Temperature now
+* Air pressure
+* Dew point temperature
+* Humidity
+* Wind gust
+* Precipitation
+* Wind speed
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hw_pred2 <- hw_pred
+for(i in seq_len(ncol(hw_pred))) hw_pred2[,i] <- scale(hw_pred[,i]) #standardize (z-score) variables
+linear2 <- lm(temp_next24h ~ prcp + smax + dmax + tmax + hmax + wdsp + gust, hw_pred2)
+summary(linear2)
+```
+
+The graph below shows the regression fitted versus real data.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(hw_pred, aes(tmax, temp_next24h))+
+  geom_point(alpha=1/20, color = 'blue') +
+# Add the line using the fortified fit data, plotting the x vs. the fitted values
+  geom_line(data = fortify(linear), aes(x = tmax, y = .fitted), color='red') +
+  xlim(15, 40) +
+  ylim(15, 40)
+```
+
+## Reflection
+
+The Hourly Weather Surface Southeast Brazil dataset contains information on 122 weather stations taken hourly from 2000 to 2016 resulting on 9.7M+ records. The analysis started with the representation of the locations of each station on a map coloured by installation year. Later, histograms of variours variables were plotted and abnormal frequency of zero and missing values was investigated for every feature and the co-occurrence for each pair. Then the records that have co-occurrence of missings and zeros were dropped (excep for variables that it's reasonable to have high counts of zeros, like precipitation). The analysis was repeated and the distributions discussed. A particular case of high missing frequency for Solar Radiation was briefly investigated to justify the removal of this variable. For the bivariate analysis a station and year was chosen to prevent noise from different geographical sites. The correlation for some selected variables was calculated, interpreted and its respective scatter plots shown. The periodical pattern of weather was identified and discussed. Finally a linear regression was fitted to the variables to predict the temperature for the next 24 hours. The regression has a R² of 0.7 and its feature importance was discussed. The knowledge acquired before is complemented by the model for understanding the climate dynamic. For such a simple model on 7 variables the result was satisfatory and can be considered as baseline for more complex models. 
